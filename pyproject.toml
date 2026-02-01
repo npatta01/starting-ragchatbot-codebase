@@ -13,3 +13,35 @@ dependencies = [
     "python-multipart==0.0.20",
     "python-dotenv==1.1.1",
 ]
+
+[tool.pytest.ini_options]
+# Pytest configuration for cleaner test execution
+testpaths = ["backend/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Output configuration
+addopts = [
+    "-v",                           # Verbose output
+    "--tb=short",                   # Shorter traceback format
+    "--strict-markers",             # Raise error on unknown markers
+    "--disable-warnings",           # Disable warnings for cleaner output
+    "-ra",                          # Show summary of all test outcomes
+]
+
+# Test markers for categorizing tests
+markers = [
+    "unit: Unit tests for individual components",
+    "integration: Integration tests across components",
+    "api: API endpoint tests",
+    "slow: Tests that take longer to execute",
+]
+
+# Coverage configuration (optional, requires pytest-cov)
+# Uncomment these lines after installing pytest-cov with: uv add pytest-cov
+# addopts = [
+#     "--cov=backend",
+#     "--cov-report=term-missing",
+#     "--cov-report=html",
+# ]
