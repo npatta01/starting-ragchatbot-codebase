@@ -276,6 +276,34 @@ header h1 {
     color: var(--text-secondary);
 }
 
+/* Source link styling */
+.sources-content a.source-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s ease;
+    display: inline-block;
+}
+
+.sources-content a.source-link:hover {
+    color: var(--primary-hover);
+    border-bottom-color: var(--primary-hover);
+}
+
+.sources-content a.source-link:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+/* External link indicator */
+.sources-content a.source-link::after {
+    content: ' ↗';
+    font-size: 0.75em;
+    opacity: 0.7;
+    margin-left: 2px;
+}
+
 /* Markdown formatting styles */
 .message-content h1,
 .message-content h2,
@@ -520,6 +548,51 @@ header h1 {
 details[open] .stats-header::before,
 details[open] .suggested-header::before {
     transform: rotate(90deg);
+}
+
+/* New Chat Button */
+.new-chat-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.5rem 0;
+    margin-bottom: 1rem;
+
+    /* Match section header typography */
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    /* Button-specific styles - match headers */
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.2s ease;
+    text-align: left;
+}
+
+.new-chat-btn:hover {
+    color: var(--primary);
+}
+
+.new-chat-btn:focus {
+    color: var(--primary);
+    outline: none;
+}
+
+.new-chat-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.new-chat-icon {
+    flex-shrink: 0;
+    width: 12px;
+    height: 12px;
 }
 
 /* Course Stats in Sidebar */

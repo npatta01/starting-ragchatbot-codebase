@@ -40,12 +40,17 @@ class QueryRequest(BaseModel):
     query: str
     session_id: Optional[str] = None
 
+class SourceReference(BaseModel):
+    """Reference to a source with optional link"""
+    text: str
+    link: Optional[str] = None
+
 
 class QueryResponse(BaseModel):
     """Response model for course queries"""
 
     answer: str
-    sources: List[str]
+    sources: List[SourceReference]
     session_id: str
 
 
@@ -71,9 +76,22 @@ async def query_documents(request: QueryRequest):
         # Process query using RAG system
         answer, sources = rag_system.query(request.query, session_id)
 
-        return QueryResponse(answer=answer, sources=sources, session_id=session_id)
+        return QueryResponse(
+            answer=answer,
+            sources=sources,
+            session_id=session_id
+        )
+    except ValueError as e:
+        # Handle validation errors (API key, invalid input, etc.)
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        # Handle runtime errors (rate limit, network, etc.)
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Log unexpected errors for debugging
+        import traceback
+        print(f"Unexpected error in query_documents: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 @app.get("/api/courses", response_model=CourseStats)
@@ -87,6 +105,17 @@ async def get_course_stats():
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/session/{session_id}")
+async def delete_session(session_id: str):
+    """Delete a session to free up memory."""
+    try:
+        rag_system.session_manager.clear_session(session_id)
+        return {"status": "success", "message": f"Session {session_id} cleared"}
+    except Exception as e:
+        # Return success even if session doesn't exist
+        return {"status": "success", "message": "Session cleared"}
 
 
 @app.on_event("startup")

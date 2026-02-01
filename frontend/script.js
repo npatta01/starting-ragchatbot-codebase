@@ -21,6 +21,37 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     createNewSession();
     loadCourseStats();
+
+    // New Chat button handler
+    const newChatBtn = document.getElementById('newChatBtn');
+    if (newChatBtn) {
+        newChatBtn.addEventListener('click', async () => {
+            // Disable button to prevent double-clicks
+            newChatBtn.disabled = true;
+
+            try {
+                // Clean up old session on backend if exists
+                if (currentSessionId) {
+                    try {
+                        await fetch(`${API_URL}/session/${currentSessionId}`, {
+                            method: 'DELETE'
+                        });
+                    } catch (error) {
+                        console.warn('Failed to clean up old session:', error);
+                        // Continue anyway - frontend reset is more important
+                    }
+                }
+
+                // Reset frontend state (reuse existing function)
+                createNewSession();
+            } finally {
+                // Re-enable button after 500ms
+                setTimeout(() => {
+                    newChatBtn.disabled = false;
+                }, 500);
+            }
+        });
+    }
 });
 
 // Event Listeners
@@ -75,10 +106,21 @@ async function sendMessage() {
             })
         });
 
-        if (!response.ok) throw new Error('Query failed');
+        // Better error handling with detailed messages
+        if (!response.ok) {
+            let errorMessage = 'Query failed';
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.detail || errorMessage;
+            } catch (e) {
+                // If JSON parsing fails, use status text
+                errorMessage = `Query failed: ${response.status} ${response.statusText}`;
+            }
+            throw new Error(errorMessage);
+        }
 
         const data = await response.json();
-        
+
         // Update session ID if new
         if (!currentSessionId) {
             currentSessionId = data.session_id;
@@ -89,9 +131,10 @@ async function sendMessage() {
         addMessage(data.answer, 'assistant', data.sources);
 
     } catch (error) {
-        // Replace loading message with error
+        // Replace loading message with detailed error
         loadingMessage.remove();
         addMessage(`Error: ${error.message}`, 'assistant');
+        console.error('Query error:', error);
     } finally {
         chatInput.disabled = false;
         sendButton.disabled = false;
@@ -126,10 +169,26 @@ function addMessage(content, type, sources = null, isWelcome = false) {
     let html = `<div class="message-content">${displayContent}</div>`;
     
     if (sources && sources.length > 0) {
+        // Build source list with links
+        const sourceItems = sources.map(source => {
+            // Handle both old string format and new object format
+            if (typeof source === 'string') {
+                return escapeHtml(source);
+            }
+
+            // New format: object with text and optional link
+            const text = escapeHtml(source.text);
+            if (source.link) {
+                return `<a href="${escapeHtml(source.link)}" target="_blank" rel="noopener noreferrer" class="source-link">${text}</a>`;
+            } else {
+                return text;
+            }
+        });
+
         html += `
             <details class="sources-collapsible">
                 <summary class="sources-header">Sources</summary>
-                <div class="sources-content">${sources.join(', ')}</div>
+                <div class="sources-content">${sourceItems.join(', ')}</div>
             </details>
         `;
     }
