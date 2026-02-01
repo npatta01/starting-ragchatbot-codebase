@@ -51,6 +51,31 @@ rm -rf chroma_db/
 # To add courses: place .txt files in docs/ and restart
 ```
 
+### Code Quality Tools
+
+This project uses Black, isort, flake8, and mypy for code quality.
+
+```bash
+# Auto-format code (fixes issues automatically)
+./format.sh
+
+# Run all quality checks (check-only mode)
+./quality.sh
+
+# Run individual tools
+uv run black backend/ main.py              # Format code
+uv run isort backend/ main.py              # Sort imports
+uv run flake8 backend/ main.py             # Lint code
+uv run mypy backend/ main.py               # Type check
+uv run pytest                               # Run tests with coverage
+```
+
+**Configuration:**
+- `pyproject.toml`: Black, isort, mypy, pytest, coverage settings
+- `.flake8`: Flake8 linting rules
+
+**Before committing:** Always run `./format.sh` to ensure consistent formatting
+
 ## Architecture
 
 ### RAG Query Flow (Two-Stage Pattern)
