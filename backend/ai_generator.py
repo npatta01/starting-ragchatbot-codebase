@@ -1,9 +1,11 @@
+from typing import Any, Dict, List, Optional
+
 import anthropic
-from typing import List, Optional, Dict, Any
+
 
 class AIGenerator:
     """Handles interactions with Anthropic's Claude API for generating responses"""
-    
+
     # Static system prompt to avoid rebuilding on each call
     SYSTEM_PROMPT = """ You are an AI assistant specialized in course materials and educational content with access to comprehensive tools for course information.
 
@@ -54,7 +56,7 @@ All responses must be:
 4. **Example-supported** - Include relevant examples when they aid understanding
 Provide only the direct answer to what was asked.
 """
-    
+
     def __init__(self, api_key: str, model: str):
         # Validate API key
         if not api_key or api_key.strip() == "":
@@ -67,43 +69,42 @@ Provide only the direct answer to what was asked.
         self.model = model
 
         # Pre-build base API parameters
-        self.base_params = {
-            "model": self.model,
-            "temperature": 0,
-            "max_tokens": 800
-        }
-    
-    def generate_response(self, query: str,
-                         conversation_history: Optional[str] = None,
-                         tools: Optional[List] = None,
-                         tool_manager=None) -> str:
+        self.base_params = {"model": self.model, "temperature": 0, "max_tokens": 800}
+
+    def generate_response(
+        self,
+        query: str,
+        conversation_history: Optional[str] = None,
+        tools: Optional[List] = None,
+        tool_manager=None,
+    ) -> str:
         """
         Generate AI response with optional tool usage and conversation context.
-        
+
         Args:
             query: The user's question or request
             conversation_history: Previous messages for context
             tools: Available tools the AI can use
             tool_manager: Manager to execute tools
-            
+
         Returns:
             Generated response as string
         """
-        
+
         # Build system content efficiently - avoid string ops when possible
         system_content = (
             f"{self.SYSTEM_PROMPT}\n\nPrevious conversation:\n{conversation_history}"
-            if conversation_history 
+            if conversation_history
             else self.SYSTEM_PROMPT
         )
-        
+
         # Prepare API call parameters efficiently
         api_params = {
             **self.base_params,
             "messages": [{"role": "user", "content": query}],
-            "system": system_content
+            "system": system_content,
         }
-        
+
         # Add tools if available
         if tools:
             api_params["tools"] = tools
@@ -115,9 +116,13 @@ Provide only the direct answer to what was asked.
         except anthropic.AuthenticationError as e:
             raise ValueError(f"Invalid API key: {str(e)}")
         except anthropic.RateLimitError as e:
-            raise RuntimeError(f"Rate limit exceeded: {str(e)}. Please try again later.")
+            raise RuntimeError(
+                f"Rate limit exceeded: {str(e)}. Please try again later."
+            )
         except anthropic.APIConnectionError as e:
-            raise RuntimeError(f"Network connection error: {str(e)}. Please check your internet connection.")
+            raise RuntimeError(
+                f"Network connection error: {str(e)}. Please check your internet connection."
+            )
         except anthropic.APIStatusError as e:
             raise RuntimeError(f"API error (status {e.status_code}): {str(e)}")
         except Exception as e:
@@ -125,17 +130,19 @@ Provide only the direct answer to what was asked.
 
         # Handle tool execution if needed
         if response.stop_reason == "tool_use" and tool_manager:
-            return self._handle_tool_execution_iterative(response, api_params, tool_manager, max_rounds=2)
+            return self._handle_tool_execution_iterative(
+                response, api_params, tool_manager, max_rounds=2
+            )
 
         # Return direct response
         return response.content[0].text
-    
+
     def _handle_tool_execution_iterative(
         self,
         initial_response,
         base_params: Dict[str, Any],
         tool_manager,
-        max_rounds: int = 2
+        max_rounds: int = 2,
     ) -> str:
         """
         Handle sequential tool execution rounds.
@@ -178,10 +185,7 @@ Provide only the direct answer to what was asked.
                 break
 
             # Add Claude's tool use request to message history
-            messages.append({
-                "role": "assistant",
-                "content": current_response.content
-            })
+            messages.append({"role": "assistant", "content": current_response.content})
 
             # Execute all tool calls in current response
             tool_results = []
@@ -190,24 +194,27 @@ Provide only the direct answer to what was asked.
                 if content_block.type == "tool_use":
                     try:
                         tool_result = tool_manager.execute_tool(
-                            content_block.name,
-                            **content_block.input
+                            content_block.name, **content_block.input
                         )
 
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": content_block.id,
-                            "content": tool_result
-                        })
+                        tool_results.append(
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": content_block.id,
+                                "content": tool_result,
+                            }
+                        )
 
                     except Exception as e:
                         # Tool execution failed - add error result
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": content_block.id,
-                            "content": f"Tool execution error: {str(e)}",
-                            "is_error": True
-                        })
+                        tool_results.append(
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": content_block.id,
+                                "content": f"Tool execution error: {str(e)}",
+                                "is_error": True,
+                            }
+                        )
 
             # Add tool results to message history
             if tool_results:
@@ -219,27 +226,37 @@ Provide only the direct answer to what was asked.
                 "messages": messages,
                 "system": base_params["system"],
                 "tools": base_params["tools"],  # KEY: Keep tools available
-                "tool_choice": {"type": "auto"}  # Let Claude decide
+                "tool_choice": {"type": "auto"},  # Let Claude decide
             }
 
             # Make next API call with error handling
             try:
                 current_response = self.client.messages.create(**next_params)
             except anthropic.AuthenticationError as e:
-                raise ValueError(f"Invalid API key in tool execution round {iteration}: {str(e)}")
+                raise ValueError(
+                    f"Invalid API key in tool execution round {iteration}: {str(e)}"
+                )
             except anthropic.RateLimitError as e:
-                raise RuntimeError(f"Rate limit exceeded in tool execution round {iteration}: {str(e)}. Please try again later.")
+                raise RuntimeError(
+                    f"Rate limit exceeded in tool execution round {iteration}: {str(e)}. Please try again later."
+                )
             except anthropic.APIConnectionError as e:
-                raise RuntimeError(f"Network error in tool execution round {iteration}: {str(e)}. Please check your internet connection.")
+                raise RuntimeError(
+                    f"Network error in tool execution round {iteration}: {str(e)}. Please check your internet connection."
+                )
             except anthropic.APIStatusError as e:
-                raise RuntimeError(f"API error in tool execution round {iteration} (status {e.status_code}): {str(e)}")
+                raise RuntimeError(
+                    f"API error in tool execution round {iteration} (status {e.status_code}): {str(e)}"
+                )
             except Exception as e:
-                raise RuntimeError(f"Unexpected error in tool execution round {iteration}: {str(e)}")
+                raise RuntimeError(
+                    f"Unexpected error in tool execution round {iteration}: {str(e)}"
+                )
 
         # After loop completes, current_response contains the final answer
         # Extract text from response (handle both text blocks and tool_use followed by text)
         for content_block in current_response.content:
-            if hasattr(content_block, 'text'):
+            if hasattr(content_block, "text"):
                 return content_block.text
 
         # Fallback if no text found
